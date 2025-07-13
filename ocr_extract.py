@@ -198,74 +198,67 @@ class ReceiptParser:
         
         return None
     
-def extract_items_and_prices(self, image_path: str) -> List[Dict]:
-    """Extract items and prices from receipt image"""
-    try:
-        # Load and preprocess with OpenCV
-        image_cv = cv2.imread(image_path)
+    def extract_items_and_prices(self, image_path: str) -> List[Dict]:
+        """Extract items and prices from receipt image"""
+        try:
+            # Load and preprocess with OpenCV
+            image_cv = cv2.imread(image_path)
 
-        # Convert to grayscale
-        gray = cv2.cvtColor(image_cv, cv2.COLOR_BGR2GRAY)
+            # Convert to grayscale
+            gray = cv2.cvtColor(image_cv, cv2.COLOR_BGR2GRAY)
 
-        # Apply adaptive threshold to enhance contrast
-        processed = cv2.adaptiveThreshold(
-            gray, 255,
-            cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-            cv2.THRESH_BINARY,
-            11, 2
-        )
+            # Apply adaptive threshold to enhance contrast
+            processed = cv2.adaptiveThreshold(
+                gray, 255,
+                cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+                cv2.THRESH_BINARY,
+                11, 2
+            )
 
-        # Convert back to PIL Image for pytesseract
-        image = Image.fromarray(processed)
+            # Convert back to PIL Image for pytesseract
+            image = Image.fromarray(processed)
 
-        # Try different OCR configurations for better results
-        ocr_configs = [
-            '--psm 6',  # Uniform block of text
-            '--psm 4',  # Single column of text
-            '--psm 8',  # Single word
-            '--psm 13'  # Raw line
-        ]
+            # Try different OCR configurations
+            ocr_configs = ['--psm 6', '--psm 4', '--psm 8', '--psm 13']
+            best_text = ""
+            best_line_count = 0
 
-        best_text = ""
-        best_line_count = 0
+            for config in ocr_configs:
+                try:
+                    text = pytesseract.image_to_string(image, config=config)
+                    line_count = len([l for l in text.split('\n') if l.strip()])
+                    if line_count > best_line_count:
+                        best_text = text
+                        best_line_count = line_count
+                except:
+                    continue
 
-        for config in ocr_configs:
-            try:
-                text = pytesseract.image_to_string(image, config=config)
-                line_count = len([l for l in text.split('\n') if l.strip()])
-                if line_count > best_line_count:
-                    best_text = text
-                    best_line_count = line_count
-            except:
-                continue
+            if not best_text:
+                return []
 
-        if not best_text:
+            # Parse each line
+            items = []
+            lines = best_text.split('\n')
+
+            for line in lines:
+                parsed_item = self.parse_line(line)
+                if parsed_item:
+                    items.append(parsed_item)
+                elif re.search(r'\d+\.\d{2}', line):  # fallback
+                    parts = line.rsplit(' ', 1)
+                    if len(parts) == 2:
+                        name, price_str = parts
+                        try:
+                            price = float(price_str)
+                            items.append({'name': name.strip(), 'price': price})
+                        except ValueError:
+                            pass
+
+            return items
+
+        except Exception as e:
+            print(f"Error processing image: {e}", file=sys.stderr)
             return []
-
-        # Parse each line
-        items = []
-        lines = best_text.split('\n')
-                
-        for line in lines:
-            parsed_item = self.parse_line(line)
-            if parsed_item:
-                items.append(parsed_item)
-            elif re.search(r'\d+\.\d{2}', line):  # Fallback if line has a price
-                parts = line.rsplit(' ', 1)
-                if len(parts) == 2:
-                    name, price_str = parts
-                    try:
-                        price = float(price_str)
-                        items.append({'name': name.strip(), 'price': price})
-                    except ValueError:
-                        pass
-
-        return items
-
-    except Exception as e:
-        print(f"Error processing image: {e}", file=sys.stderr)
-        return []
-
 def main():
     if len(sys.argv) < 2:
         print(json.dumps([]))

@@ -27,12 +27,20 @@ app.get('/', (req, res) => {
 
 
 app.post('/upload', upload.single('file'), (req, res) => {
+  console.log("hitting here__")
   const python = spawn('python3', ['ocr_extract.py', req.file.path]);
+  console.log(python, "__python")
   let data = '';
   python.stdout.on('data', (chunk) => { data += chunk; });
   python.stderr.on('data', (err) => { console.error(err.toString()); });
+  python.stderr.on('data', (err) => {
+  console.error("Python error:", err.toString());
+});
+  console.log(data, "____data___")
   python.on('close', (code) => {
+    console.log(code, "__cide__code")
     if (code === 0) {
+      
       try {
         const items = JSON.parse(data);
         const receipt = new Receipt({ filename: req.file.filename, items });
