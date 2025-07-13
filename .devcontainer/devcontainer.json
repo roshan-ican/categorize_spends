@@ -1,0 +1,19 @@
+{
+  "name": "Node.js & Python Receipt App DevContainer",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "settings": {
+    "terminal.integrated.shell.linux": "/bin/bash",
+    "editor.formatOnSave": true
+  },
+  "extensions": [
+    "ms-python.python",
+    "dbaeumer.vscode-eslint",
+    "esbenp.prettier-vscode",
+    "ms-azuretools.vscode-docker"
+  ],
+  "postCreateCommand": "npm install && pip3 install -r requirements.txt",
+  "forwardPorts": [5000, 9991],
+  "remoteUser": "node"
+}
