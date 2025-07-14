@@ -8,9 +8,11 @@ const upload = multer({ dest: 'uploads/' });
 const { spawn } = require('child_process');
 
 const Receipt = require('./models/recipt');
-
+const cors = require('cors');
 
 const app = express();
+app.use(cors());
+
 app.use(express.json());
 
 // Connect to MongoDB
@@ -26,24 +28,29 @@ app.get('/', (req, res) => {
 
 
 
-app.post('/upload', upload.single('file'), (req, res) => {
-  console.log("hitting here__")
-  const python = spawn('python3', ['ocr_extract.py', req.file.path]);
-  console.log(python, "__python")
+app.post('/upload', upload.any(), (req, res) => {
+
+  console.log(req, "___requsts__")
+  if (!req.files || req.files.length === 0) {
+    return res.status(400).json({ error: "No file uploaded" });
+  }
+
+  const file = req.files[0];
+  console.log("Received file:", file.originalname);
+
+  const python = spawn('python3', ['ocr_extract.py', file.path]);
   let data = '';
+
   python.stdout.on('data', (chunk) => { data += chunk; });
-  python.stderr.on('data', (err) => { console.error(err.toString()); });
   python.stderr.on('data', (err) => {
-  console.error("Python error:", err.toString());
-});
-  console.log(data, "____data___")
+    console.error("Python error:", err.toString());
+  });
+
   python.on('close', (code) => {
-    console.log(code, "__cide__code")
     if (code === 0) {
-      
       try {
         const items = JSON.parse(data);
-        const receipt = new Receipt({ filename: req.file.filename, items });
+        const receipt = new Receipt({ filename: file.originalname, items });
         console.log(receipt, "_receipt__");
         receipt.save()
           .then(() => res.json({ success: true, receipt }))
