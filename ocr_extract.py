@@ -7,6 +7,12 @@ from typing import List, Dict, Optional
 import cv2
 import numpy as np
 
+import re
+from google import genai
+import os
+
+API_KEY = os.getenv('GEMINI_API_KEY', 'Message in group for api key or take from gemeni')
+
 class ReceiptParser:
     def __init__(self):
         self.patterns = [
@@ -82,23 +88,33 @@ class ReceiptParser:
 
     def extract_items_and_prices(self, image_path: str) -> List[Dict]:
         try:
+            # image_cv = cv2.imread(image_path)
+            # gray = cv2.cvtColor(image_cv, cv2.COLOR_BGR2GRAY)
+
+            # processed = cv2.adaptiveThreshold(
+            #     gray, 255,
+            #     cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+            #     cv2.THRESH_BINARY,
+            #     11, 2
+            # )
+
+            # # ✅ Add dilation to help with handwritten text
+            # kernel = np.ones((2, 2), np.uint8)
+            # processed = cv2.dilate(processed, kernel, iterations=1)
+
+            # image = Image.fromarray(processed)
+
+            # ocr_configs = ['--psm 6', '--psm 4', '--psm 8', '--psm 13']
+
+
+            # Above code not working
+
             image_cv = cv2.imread(image_path)
-            gray = cv2.cvtColor(image_cv, cv2.COLOR_BGR2GRAY)
+            image = Image.fromarray(image_cv)
 
-            processed = cv2.adaptiveThreshold(
-                gray, 255,
-                cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-                cv2.THRESH_BINARY,
-                11, 2
-            )
+            ocr_configs = ['--psm 6', '--psm 11', '--psm 4']
 
-            # ✅ Add dilation to help with handwritten text
-            kernel = np.ones((2, 2), np.uint8)
-            processed = cv2.dilate(processed, kernel, iterations=1)
 
-            image = Image.fromarray(processed)
-
-            ocr_configs = ['--psm 6', '--psm 4', '--psm 8', '--psm 13']
             best_text = ""
             best_line_count = 0
 
@@ -115,26 +131,62 @@ class ReceiptParser:
             if not best_text:
                 print(">>> No OCR text found", file=sys.stderr)
                 return []
-
+            # print('is it working')
             # ✅ Log raw OCR output
-            print(">>> OCR Raw Output:\n", best_text, file=sys.stderr)
+            # print(">>> OCR Raw Output:\n", best_text, file=sys.stderr)
 
-            items = []
-            lines = best_text.split('\n')
+            # Configure the API key (using an environment variable)
+            client = genai.Client(api_key=API_KEY)
 
-            for line in lines:
-                parsed_item = self.parse_line(line)
-                if parsed_item:
-                    items.append(parsed_item)
-                elif re.search(r'\d+\.\d{2}', line):  # Fallback
-                    parts = line.rsplit(' ', 1)
-                    if len(parts) == 2:
-                        name, price_str = parts
-                        try:
-                            price = float(price_str)
-                            items.append({'name': name.strip(), 'price': price})
-                        except ValueError:
-                            pass
+            # print('here here')
+
+            # Create a GenerativeModel instance
+            # model = genai.('gemini-2.5-flash')
+
+            prompt = f"""
+Extract the items from this bill and give only a JSON list of dictionaries with "name" and "price" keys.
+
+Bill:
+{best_text}
+
+Format:
+[
+  {{ "name": "ItemName", "price": Price }}
+]
+"""
+            
+
+          
+
+            # Make a request to generate content
+            # response = model.generate_content(prompt)
+            response = client.models.generate_content(model='gemini-2.5-flash',contents=prompt)
+
+            response_text = response.text
+
+            # Print the generated text
+
+            # items = []
+
+            cleaned = re.sub(r"```(?:json)?", "", response_text).strip("` \n")
+
+            items = json.loads(cleaned)
+            # print('Response From AI:',items)
+            # lines = best_text.split('\n')
+
+            # for line in lines:
+            #     parsed_item = self.parse_line(line)
+            #     if parsed_item:
+            #         items.append(parsed_item)
+            #     elif re.search(r'\d+\.\d{2}', line):  # Fallback
+            #         parts = line.rsplit(' ', 1)
+            #         if len(parts) == 2:
+            #             name, price_str = parts
+            #             try:
+            #                 price = float(price_str)
+            #                 items.append({'name': name.strip(), 'price': price})
+            #             except ValueError:
+            #                 pass
 
             return items
 
