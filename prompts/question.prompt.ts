@@ -1,4 +1,4 @@
-const questionPrompt = `You are a MongoDB expert with access to a Mongoose model named Receipt.
+export const questionPrompt = `You are a MongoDB expert with access to a Mongoose model named Receipt.
 
 Schema:
 Receipt {
@@ -26,7 +26,7 @@ User question:
     `;
 
 
-const analzeQuestionPrompt = (message,data) => {
+export const analzeQuestionPrompt = (message: string, data: any): string => {
     return `You are a personal finance assistant. Below is the user data 
     ${JSON.stringify(data)}
 
@@ -42,10 +42,5 @@ Important Rules:
 - Do not include markdown formatting (like \`\`\`) .
 - Do not add comments or explanation.
 - Always return valid JSON that can be used in code and parsed .
-
-
-
     `
 }
-
-module.exports = {questionPrompt,analzeQuestionPrompt};
